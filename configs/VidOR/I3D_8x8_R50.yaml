@@ -1,16 +1,14 @@
 TRAIN:
   ENABLE: True
   DATASET: VidOR
-  BATCH_SIZE: 8
-  EVAL_PERIOD: 5
+  BATCH_SIZE: 4
+  EVAL_PERIOD: 10
   CHECKPOINT_PERIOD: 1
   AUTO_RESUME: True
-  # CHECKPOINT_FILE_PATH: path to the pretrain checkpoint file.
-  CHECKPOINT_TYPE: caffe2
 DATA:
   PATH_TO_DATA_DIR: /home/wluo/vidor-dataset
-  NUM_FRAMES: 4
-  SAMPLING_RATE: 16
+  NUM_FRAMES: 8
+  SAMPLING_RATE: 8
   TRAIN_JITTER_SCALES: [256, 320]
   TRAIN_CROP_SIZE: 224
   TEST_CROP_SIZE: 256
@@ -18,9 +16,6 @@ DATA:
 VIDOR:
   FRAME_PATH: /home/shuogpu/wluo/vidor-dataset/frame
   TRAIN_FRAME_LIST : /home/shuogpu/wluo/vidor-dataset/train_frame_list.csv
-DETECTION:
-  ENABLE: False
-  ALIGNED: False
 RESNET:
   ZERO_INIT_FINAL_BN: True
   WIDTH_PER_GROUP: 64
@@ -29,42 +24,38 @@ RESNET:
   TRANS_FUNC: bottleneck_transform
   STRIDE_1X1: False
   NUM_BLOCK_TEMP_KERNEL: [[3], [4], [6], [3]]
-  SPATIAL_DILATIONS: [[1], [1], [1], [2]]
-  SPATIAL_STRIDES: [[1], [2], [2], [1]]
 NONLOCAL:
   LOCATION: [[[]], [[]], [[]], [[]]]
   GROUP: [[1], [1], [1], [1]]
   INSTANTIATION: softmax
 BN:
-  USE_PRECISE_STATS: False
+  USE_PRECISE_STATS: True
   NUM_BATCHES_PRECISE: 200
   MOMENTUM: 0.1
   WEIGHT_DECAY: 0.0
 SOLVER:
   BASE_LR: 0.1
-  LR_POLICY: steps_with_relative_lrs
-  STEPS: [0, 10, 5, 5]
-  LRS: [1, 0.1, 0.01, 0.001]
-  MAX_EPOCH: 20
+  LR_POLICY: cosine
+  MAX_EPOCH: 196
   MOMENTUM: 0.9
-  WEIGHT_DECAY: 1e-7
-  WARMUP_EPOCHS: 5
-  WARMUP_START_LR: 0.000125
+  WEIGHT_DECAY: 1e-4
+  WARMUP_EPOCHS: 34
+  WARMUP_START_LR: 0.01
   OPTIMIZING_METHOD: sgd
 MODEL:
   NUM_CLASSES: 30
-  ARCH: slowonly
+  ARCH: i3d
   MODEL_NAME: ResNet
-  LOSS_FUNC: bce
+  LOSS_FUNC: cross_entropy
   DROPOUT_RATE: 0.5
 TEST:
   ENABLE: True
   DATASET: VidOR
-  BATCH_SIZE: 8
+  BATCH_SIZE: 64
 DATA_LOADER:
-  NUM_WORKERS: 2
+  NUM_WORKERS: 8
   PIN_MEMORY: True
-NUM_GPUS: 4
+NUM_GPUS: 2
 NUM_SHARDS: 1
 RNG_SEED: 0
 OUTPUT_DIR: .

@@ -28,6 +28,10 @@ class Vidor(torch.utils.data.Dataset):
         self._split = split
         self._num_classes = cfg.MODEL.NUM_CLASSES
         # Augmentation params.
+        # Augmentation params.
+        self._data_mean = cfg.DATA.MEAN
+        self._data_std = cfg.DATA.STD
+        self._use_bgr = cfg.AVA.BGR
         if self._split == "train":
             self._crop_size = cfg.DATA.TRAIN_CROP_SIZE
             self._jitter_min_scale = cfg.DATA.TRAIN_JITTER_SCALES[0]
@@ -54,10 +58,7 @@ class Vidor(torch.utils.data.Dataset):
         assert os.path.exists(path_to_file), "{} dir not found".format(
             path_to_file
         )
-        vidor_data = defaultdict(list)
-        self.video_name_to_idx = {}
-        self.video_idx_to_name = []
-        self.clip_keys = []
+        vidor_data = []
         with open(path_to_file, "r") as f:
             reader = csv.reader(f, delimiter=" ")
             for row in reader:
@@ -67,29 +68,26 @@ class Vidor(torch.utils.data.Dataset):
                 frame_loc = row[0]
                 boxes = row[1:5]
                 label = row[5]
-                clip_key = row[5:]
-                if clip_key not in self.clip_keys:
-                    self.clip_keys.append(clip_key)
-                vidor_data[str(clip_key)].append(
+                vidor_data.append(
                     (os.path.join(cfg.VIDOR.FRAME_PATH, row[0]),boxes,label)
                 )
-        return vidor_data
+            return [vidor_data[i:i + 60] for i in range(0, len(vidor_data), 60)]
 
     def print_summary(self):
         print_log("=== VidOR dataset summary ===")
         print_log("Split: {}".format(self._split))
         print_log(f"Number of classes: {self._num_classes}")
-        print_log(f"Number of clips: {len(self.clip_keys)}")
-        total_frames = sum([len(self.data[str(clip)]) for clip in self.clip_keys])
+        print_log(f"Number of clips: {len(self.data)}")
+        total_frames = sum([len(clip) for clip in self.data])
         print_log(f"Number of frames:{total_frames}")
 
     def __len__(self):
-        return len(self.clip_keys)
+        return len(self.data)
 
-    def _images_and_boxes_preprocessing(self, imgs, boxes):
+    def _images_and_boxes_preprocessing_cv2(self, imgs, boxes):
         """
         This function performs preprocessing for the input images and
-        corresponding boxes for one clip.
+        corresponding boxes for one clip with opencv as backend.
 
         Args:
             imgs (tensor): the images.
@@ -99,74 +97,87 @@ class Vidor(torch.utils.data.Dataset):
             imgs (tensor): list of preprocessed images.
             boxes (ndarray): preprocessed boxes.
         """
-        # Image [0, 255] -> [0, 1].
-        imgs = imgs.float()
-        imgs = imgs / 255.0
 
-        height, width = imgs.shape[2], imgs.shape[3]
-        # The format of boxes is [x1, y1, x2, y2]. The input boxes are in the
-        # range of [0, 1].
-        boxes = transform.clip_boxes_to_image(boxes, height, width)
+        height, width, _ = imgs[0].shape
+        # `transform.py` is list of np.array. However, for AVA, we only have
+        # one np.array.
+        boxes = [boxes[i,:].reshape(1,4) for i in range(boxes.shape[0])]
 
-        if self._split == "train":
-            # Train split
-            imgs, boxes = transform.random_short_side_scale_jitter(
+        # The image now is in HWC, BGR format.
+        if self._split == "train":  # "train"
+            imgs, boxes = cv2_transform.random_short_side_scale_jitter_list(
                 imgs,
                 min_size=self._jitter_min_scale,
                 max_size=self._jitter_max_scale,
                 boxes=boxes,
             )
-            imgs, boxes = transform.random_crop(
-                imgs, self._crop_size, boxes=boxes
+            imgs, boxes = cv2_transform.random_crop_list(
+                imgs, self._crop_size, order="HWC", boxes=boxes
             )
 
-            # Random flip.
-            imgs, boxes = transform.horizontal_flip(0.5, imgs, boxes=boxes)
+            # random flip
+            imgs, boxes = cv2_transform.horizontal_flip_list(
+                0.5, imgs, order="HWC", boxes=boxes
+            )
         elif self._split == "val":
-            # Val split
-            # Resize short side to crop_size. Non-local and STRG uses 256.
-            imgs, boxes = transform.random_short_side_scale_jitter(
-                imgs,
-                min_size=self._crop_size,
-                max_size=self._crop_size,
-                boxes=boxes,
-            )
-
-            # Apply center crop for val split
-            imgs, boxes = transform.uniform_crop(
-                imgs, size=self._crop_size, spatial_idx=1, boxes=boxes
+            # Short side to test_scale. Non-local and STRG uses 256.
+            imgs = [cv2_transform.scale(self._crop_size, img) for img in imgs]
+            boxes = [
+                cv2_transform.scale_boxes(
+                    self._crop_size, boxes[0], height, width
+                )
+            ]
+            imgs, boxes = cv2_transform.spatial_shift_crop_list(
+                self._crop_size, imgs, 1, boxes=boxes
             )
 
             if self._test_force_flip:
-                imgs, boxes = transform.horizontal_flip(1, imgs, boxes=boxes)
+                imgs, boxes = cv2_transform.horizontal_flip_list(
+                    1, imgs, order="HWC", boxes=boxes
+                )
         elif self._split == "test":
-            # Test split
-            # Resize short side to crop_size. Non-local and STRG uses 256.
-            imgs, boxes = transform.random_short_side_scale_jitter(
-                imgs,
-                min_size=self._crop_size,
-                max_size=self._crop_size,
-                boxes=boxes,
-            )
+            # Short side to test_scale. Non-local and STRG uses 256.
+            imgs = [cv2_transform.scale(self._crop_size, img) for img in imgs]
+            boxes = [
+                cv2_transform.scale_boxes(
+                    self._crop_size, boxes[0], height, width
+                )
+            ]
 
             if self._test_force_flip:
-                imgs, boxes = transform.horizontal_flip(1, imgs, boxes=boxes)
+                imgs, boxes = cv2_transform.horizontal_flip_list(
+                    1, imgs, order="HWC", boxes=boxes
+                )
         else:
             raise NotImplementedError(
-                "{} split not supported yet!".format(self._split)
+                "Unsupported split mode {}".format(self._split)
             )
+
+        # Convert image to CHW keeping BGR order.
+        imgs = [cv2_transform.HWC2CHW(img) for img in imgs]
+
+        # Image [0, 255] -> [0, 1].
+        imgs = [img / 255.0 for img in imgs]
+
+        imgs = [
+            np.ascontiguousarray(
+                # img.reshape((3, self._crop_size, self._crop_size))
+                img.reshape((3, imgs[0].shape[1], imgs[0].shape[2]))
+            ).astype(np.float32)
+            for img in imgs
+        ]
 
         # Do color augmentation (after divided by 255.0).
         if self._split == "train" and self._use_color_augmentation:
             if not self._pca_jitter_only:
-                imgs = transform.color_jitter(
+                imgs = cv2_transform.color_jitter_list(
                     imgs,
                     img_brightness=0.4,
                     img_contrast=0.4,
                     img_saturation=0.4,
                 )
 
-            imgs = transform.lighting_jitter(
+            imgs = cv2_transform.lighting_list(
                 imgs,
                 alphastd=0.1,
                 eigval=np.array(self._pca_eigval).astype(np.float32),
@@ -174,22 +185,27 @@ class Vidor(torch.utils.data.Dataset):
             )
 
         # Normalize images by mean and std.
-        imgs = transform.color_normalization(
-            imgs,
-            np.array(self._data_mean, dtype=np.float32),
-            np.array(self._data_std, dtype=np.float32),
+        imgs = [
+            cv2_transform.color_normalization(
+                img,
+                np.array(self._data_mean, dtype=np.float32),
+                np.array(self._data_std, dtype=np.float32),
+            )
+            for img in imgs
+        ]
+
+        # Concat list of images to single ndarray.
+        imgs = np.concatenate(
+            [np.expand_dims(img, axis=1) for img in imgs], axis=1
         )
 
-        if not self._use_bgr:
-            # Convert image format from BGR to RGB.
-            # Note that Kinetics pre-training uses RGB!
-            imgs = imgs[:, [2, 1, 0], ...]
-
-        boxes = transform.clip_boxes_to_image(
-            boxes, self._crop_size, self._crop_size
+        imgs = np.ascontiguousarray(imgs)
+        imgs = torch.from_numpy(imgs)
+        boxes = cv2_transform.clip_boxes_to_image(
+            boxes[0], imgs[0].shape[1], imgs[0].shape[2]
         )
-
         return imgs, boxes
+
 
     def __getitem__(self, idx):
         """
@@ -205,38 +221,32 @@ class Vidor(torch.utils.data.Dataset):
             extra_data (dict): a dict containing extra data fields, like "boxes",
                 "ori_boxes" and "metadata".
         """
-        clip_data = self.data[str(self.clip_keys[idx])] 
+        clip_data = self.data[idx] 
+        
         # Get boxes and labels for current clip.
         boxes = []
         labels = []
         image_paths = []
         for row in clip_data:
             image_path,box,label = row
-            boxes.append(box)
+            boxes.append(list(map(int, box)))
             labels.append(label)
             image_paths.append(image_path)
         # Load images of current clip.
         imgs = utils.retry_load_images(
-            image_paths, backend="pytorch"
+            image_paths, backend="cv2"
         )
-        print(np.shape(imgs))
         boxes = np.array(boxes)
         ori_boxes = boxes.copy()
-        
-        # T H W C -> T C H W.
-        imgs = imgs.permute(0, 3, 1, 2)
-        # Preprocess images and boxes.
-        # imgs, boxes = self._images_and_boxes_preprocessing(
-        #     imgs, boxes=boxes
-        # )
-        # T C H W -> C T H W.
-        imgs = imgs.permute(1, 0, 2, 3)
+        # Preprocess images and boxes
+        imgs, boxes = self._images_and_boxes_preprocessing_cv2(
+            imgs, boxes=boxes
+        )
 
         # Construct label arrays.
-        print(np.shape(labels))
         label_arrs = np.zeros((len(labels), self._num_classes), dtype=np.int32)
         for i, label in enumerate(labels):
-            label_arrs[i][label] = 1
+            label_arrs[i][int(label)] = 1
 
         imgs = utils.pack_pathway_output(self.cfg, imgs)
 

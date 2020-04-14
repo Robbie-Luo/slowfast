@@ -55,7 +55,7 @@ def parse_args():
         "--cfg",
         dest="cfg_file",
         help="Path to the config file",
-        default="configs/VidOR/C2D_8x8_R50_SHORT.yaml",
+        default="configs/VidOR/I3D_8x8_R50.yaml",
         type=str,
     )
     parser.add_argument(
