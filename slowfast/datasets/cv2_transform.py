@@ -125,10 +125,10 @@ def scale_boxes(size, boxes, height, width):
     new_height = size
     if width < height:
         new_height = int(math.floor((float(height) / width) * size))
-        boxes *= float(new_height) / height
+        boxes *= int(float(new_height) / height)
     else:
         new_width = int(math.floor((float(width) / height) * size))
-        boxes *= float(new_width) / width
+        boxes *= int(float(new_width) / width)
     return boxes
 
 

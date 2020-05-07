@@ -47,7 +47,7 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
                 inputs[i] = inputs[i].cuda(non_blocking=True)
         else:
             inputs = inputs.cuda(non_blocking=True)
-        labels = labels.cuda()
+        labels = labels.cuda().long()
         for key, val in meta.items():
             print(key,val)
             if isinstance(val, (list,)):
@@ -59,7 +59,6 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
         # Update the learning rate.
         lr = optim.get_epoch_lr(cur_epoch + float(cur_iter) / data_size, cfg)
         optim.set_lr(optimizer, lr)
-
         if cfg.DETECTION.ENABLE:
             # Compute the predictions.
             preds = model(inputs, meta["boxes"])
@@ -70,7 +69,7 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
 
         # Explicitly declare reduction to mean.
         loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
-
+      
         # Compute the loss.
         loss = loss_fun(preds, labels)
 

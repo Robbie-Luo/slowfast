@@ -26,12 +26,12 @@ class Vidor(torch.utils.data.Dataset):
     def __init__(self, cfg, split):
         self.cfg = cfg
         self._split = split
+        self._sample_rate = cfg.DATA.SAMPLING_RATE
+        self._video_length = cfg.DATA.NUM_FRAMES
+        self._seq_len = self._video_length * self._sample_rate
         self._num_classes = cfg.MODEL.NUM_CLASSES
-        # Augmentation params.
-        # Augmentation params.
         self._data_mean = cfg.DATA.MEAN
         self._data_std = cfg.DATA.STD
-        self._use_bgr = cfg.AVA.BGR
         if self._split == "train":
             self._crop_size = cfg.DATA.TRAIN_CROP_SIZE
             self._jitter_min_scale = cfg.DATA.TRAIN_JITTER_SCALES[0]
@@ -54,7 +54,10 @@ class Vidor(torch.utils.data.Dataset):
         Args:
             cfg (CfgNode): config
         """
-        path_to_file = cfg.VIDOR.TRAIN_FRAME_LIST 
+        if self._split == 'train':
+            path_to_file = cfg.VIDOR.TRAIN_FRAME_LIST 
+        else:
+            path_to_file = cfg.VIDOR.VAL_FRAME_LIST
         assert os.path.exists(path_to_file), "{} dir not found".format(
             path_to_file
         )
@@ -65,13 +68,12 @@ class Vidor(torch.utils.data.Dataset):
                 # The format of each row should follow:
                 # frame_loc,box[0],box[1],box[2],box[3],label,clip_index]
                 assert len(row) == 7
-                frame_loc = row[0]
+                frame_loc = os.path.join(cfg.VIDOR.FRAME_PATH, row[0])
                 boxes = row[1:5]
                 label = row[5]
-                vidor_data.append(
-                    (os.path.join(cfg.VIDOR.FRAME_PATH, row[0]),boxes,label)
-                )
-            return [vidor_data[i:i + 60] for i in range(0, len(vidor_data), 60)]
+                vidor_data.append((frame_loc ,boxes,label))
+            sample_rate = self._sample_rate
+            return [vidor_data[i:i + sample_rate] for i in range(0, len(vidor_data), sample_rate)]
 
     def print_summary(self):
         print_log("=== VidOR dataset summary ===")
@@ -143,7 +145,6 @@ class Vidor(torch.utils.data.Dataset):
                     self._crop_size, boxes[0], height, width
                 )
             ]
-
             if self._test_force_flip:
                 imgs, boxes = cv2_transform.horizontal_flip_list(
                     1, imgs, order="HWC", boxes=boxes
@@ -222,15 +223,14 @@ class Vidor(torch.utils.data.Dataset):
                 "ori_boxes" and "metadata".
         """
         clip_data = self.data[idx] 
-        
         # Get boxes and labels for current clip.
         boxes = []
         labels = []
         image_paths = []
         for row in clip_data:
             image_path,box,label = row
-            boxes.append(list(map(int, box)))
             labels.append(label)
+            boxes.append(list(map(int, box)))
             image_paths.append(image_path)
         # Load images of current clip.
         imgs = utils.retry_load_images(
@@ -244,9 +244,10 @@ class Vidor(torch.utils.data.Dataset):
         )
 
         # Construct label arrays.
-        label_arrs = np.zeros((len(labels), self._num_classes), dtype=np.int32)
-        for i, label in enumerate(labels):
-            label_arrs[i][int(label)] = 1
+        # label_arrs = np.zeros((len(labels), self._num_classes), dtype=np.int32)
+        # for i, label in enumerate(labels):
+        #     label_arrs[i][int(label)] = 1
+        # label_arr = np.eye(self._num_classes)[values]
 
         imgs = utils.pack_pathway_output(self.cfg, imgs)
 
@@ -255,4 +256,4 @@ class Vidor(torch.utils.data.Dataset):
             "ori_boxes": ori_boxes,
         }
 
-        return imgs, label_arrs, idx, {}
+        return imgs, int(labels[0]), idx, {}

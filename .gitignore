@@ -12,3 +12,5 @@ slowfast/models/__pycache__/
 slowfast/datasets/__pycache__/
 
 slowfast/config/__pycache__/
+
+*.pyc

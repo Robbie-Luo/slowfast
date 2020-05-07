@@ -230,7 +230,7 @@ class TestMeter(object):
             num_cls (int): number of classes for each prediction.
             overall_iters (int): overall iterations for testing.
         """
-
+        print(num_videos, num_clips, num_cls, overall_iters)
         self.iter_timer = Timer()
         self.num_clips = num_clips
         self.overall_iters = overall_iters

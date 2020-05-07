@@ -318,7 +318,7 @@ _C.OUTPUT_DIR = "./tmp"
 _C.RNG_SEED = 1
 
 # Log period in iters.
-_C.LOG_PERIOD = 10
+_C.LOG_PERIOD = 50
 
 # Distributed backend.
 _C.DIST_BACKEND = "nccl"
@@ -436,8 +436,9 @@ _C.AVA.IMG_PROC_BACKEND = "cv2"
 # VIDOR Dataset options
 # -----------------------------------------------------------------------------
 _C.VIDOR = CfgNode()
-_C.VIDOR.FRAME_PATH = '/home/shuogpu/wluo/vidor-dataset/frame/'
-_C.VIDOR.TRAIN_FRAME_LIST = '/home/shuogpu/wluo/vidor-dataset/train_frame_list.csv'
+_C.VIDOR.FRAME_PATH = '/home/wluo/vidor-dataset/frame'
+_C.VIDOR.TRAIN_FRAME_LIST = '/home/wluo/vidor-dataset/training_frame_list.csv'
+_C.VIDOR.VAL_FRAME_LIST = '/home/wluo/vidor-dataset/validation_frame_list.csv'
 
 
 def _assert_and_infer_cfg(cfg):

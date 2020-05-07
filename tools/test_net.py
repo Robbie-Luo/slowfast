@@ -81,6 +81,8 @@ def perform_test(test_loader, model, test_meter, cfg):
         else:
             # Perform the forward pass.
             preds = model(inputs)
+            print(f'preds:{torch.argmax(preds)}')
+            print(f'labels:{labels}')
 
             # Gather all the predictions across all the devices to perform ensemble.
             if cfg.NUM_GPUS > 1:
@@ -124,8 +126,8 @@ def test(cfg):
 
     # Build the video model and print model statistics.
     model = build_model(cfg)
-    if du.is_master_proc():
-        misc.log_model_info(model, cfg, is_train=False)
+    # if du.is_master_proc():
+    #     misc.log_model_info(model, cfg, is_train=False)
 
     # Load a checkpoint to test if applicable.
     if cfg.TEST.CHECKPOINT_FILE_PATH != "":
