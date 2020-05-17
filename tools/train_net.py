@@ -66,7 +66,6 @@ def train_epoch(train_loader, model, optimizer, train_meter, cur_epoch, cfg):
         else:
             # Perform the forward pass.
             preds = model(inputs)
-
         # Explicitly declare reduction to mean.
         loss_fun = losses.get_loss_func(cfg.MODEL.LOSS_FUNC)(reduction="mean")
       

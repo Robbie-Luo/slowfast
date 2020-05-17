@@ -57,7 +57,7 @@ class Vidor(torch.utils.data.Dataset):
         if self._split == 'train':
             path_to_file = cfg.VIDOR.TRAIN_FRAME_LIST 
         else:
-            path_to_file = cfg.VIDOR.VAL_FRAME_LIST
+            path_to_file = cfg.VIDOR.TRAIN_FRAME_LIST
         assert os.path.exists(path_to_file), "{} dir not found".format(
             path_to_file
         )
@@ -73,7 +73,8 @@ class Vidor(torch.utils.data.Dataset):
                 label = row[5]
                 vidor_data.append((frame_loc ,boxes,label))
             sample_rate = self._sample_rate
-            return [vidor_data[i:i + sample_rate] for i in range(0, len(vidor_data), sample_rate)]
+            sampled_data = [vidor_data[i] for i in range(0, len(vidor_data), sample_rate)]
+            return [sampled_data[i:i+self._video_length] for i in range(0,len(sampled_data),self._video_length)]
 
     def print_summary(self):
         print_log("=== VidOR dataset summary ===")

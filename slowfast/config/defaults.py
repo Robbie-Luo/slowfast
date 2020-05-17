@@ -318,7 +318,7 @@ _C.OUTPUT_DIR = "./tmp"
 _C.RNG_SEED = 1
 
 # Log period in iters.
-_C.LOG_PERIOD = 50
+_C.LOG_PERIOD = 20
 
 # Distributed backend.
 _C.DIST_BACKEND = "nccl"

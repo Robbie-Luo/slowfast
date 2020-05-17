@@ -51,11 +51,13 @@ def parse_args():
         default="tcp://localhost:9999",
         type=str,
     )
+    # 'configs/VidOR/I3D_8x8_R50.yaml'
+    # 'configs/VidOR/SLOWFAST_8x8_R50.yaml'
     parser.add_argument(
         "--cfg",
         dest="cfg_file",
         help="Path to the config file",
-        default="configs/VidOR/I3D_8x8_R50.yaml",
+        default='configs/VidOR/SLOWFAST_8x8_R50.yaml',
         type=str,
     )
     parser.add_argument(

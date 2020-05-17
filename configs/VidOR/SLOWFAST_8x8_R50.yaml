@@ -1,13 +1,12 @@
 TRAIN:
   ENABLE: True
   DATASET: VidOR
-  BATCH_SIZE: 4
-  EVAL_PERIOD: 5
+  BATCH_SIZE: 5
+  EVAL_PERIOD: 10
   CHECKPOINT_PERIOD: 1
   AUTO_RESUME: True
-  # CHECKPOINT_FILE_PATH: path to the pretrain checkpoint file.
-  CHECKPOINT_TYPE: caffe2
 DATA:
+  PATH_TO_DATA_DIR: /home/wluo/vidor-dataset
   NUM_FRAMES: 32
   SAMPLING_RATE: 2
   TRAIN_JITTER_SCALES: [256, 320]
@@ -18,9 +17,6 @@ VIDOR:
   FRAME_PATH: /home/wluo/vidor-dataset/frame
   TRAIN_FRAME_LIST : /home/wluo/vidor-dataset/training_frame_list_15.csv
   VAL_FRAME_LIST: /home/wluo/vidor-dataset/validation_frame_list_15.csv
-DETECTION:
-  ENABLE: False
-  ALIGNED: False
 SLOWFAST:
   ALPHA: 4
   BETA_INV: 8
@@ -34,41 +30,40 @@ RESNET:
   TRANS_FUNC: bottleneck_transform
   STRIDE_1X1: False
   NUM_BLOCK_TEMP_KERNEL: [[3, 3], [4, 4], [6, 6], [3, 3]]
-  SPATIAL_DILATIONS: [[1, 1], [1, 1], [1, 1], [2, 2]]
-  SPATIAL_STRIDES: [[1, 1], [2, 2], [2, 2], [1, 1]]
+  SPATIAL_STRIDES: [[1, 1], [2, 2], [2, 2], [2, 2]]
+  SPATIAL_DILATIONS: [[1, 1], [1, 1], [1, 1], [1, 1]]
 NONLOCAL:
   LOCATION: [[[], []], [[], []], [[], []], [[], []]]
   GROUP: [[1, 1], [1, 1], [1, 1], [1, 1]]
   INSTANTIATION: dot_product
-  POOL: [[[1, 2, 2], [1, 2, 2]], [[1, 2, 2], [1, 2, 2]], [[1, 2, 2], [1, 2, 2]], [[1, 2, 2], [1, 2, 2]]]
 BN:
-  USE_PRECISE_STATS: False
+  USE_PRECISE_STATS: True
   NUM_BATCHES_PRECISE: 200
   MOMENTUM: 0.1
   WEIGHT_DECAY: 0.0
 SOLVER:
   BASE_LR: 0.1
-  LR_POLICY: steps_with_relative_lrs
-  STEPS: [0, 10, 5, 5]
-  LRS: [1, 0.1, 0.01, 0.001]
-  MAX_EPOCH: 20
+  LR_POLICY: cosine
+  MAX_EPOCH: 50
   MOMENTUM: 0.9
-  WEIGHT_DECAY: 1e-7
-  WARMUP_EPOCHS: 5
-  WARMUP_START_LR: 0.000125
+  WEIGHT_DECAY: 1e-4
+  WARMUP_EPOCHS: 10
+  WARMUP_START_LR: 0.01
   OPTIMIZING_METHOD: sgd
 MODEL:
   NUM_CLASSES: 15
   ARCH: slowfast
   MODEL_NAME: SlowFast
-  LOSS_FUNC: bce
+  LOSS_FUNC: cross_entropy
   DROPOUT_RATE: 0.5
 TEST:
   ENABLE: True
   DATASET: VidOR
   BATCH_SIZE: 1
+  NUM_ENSEMBLE_VIEWS: 1
+  NUM_SPATIAL_CROPS: 1
 DATA_LOADER:
-  NUM_WORKERS: 2
+  NUM_WORKERS: 4
   PIN_MEMORY: True
 NUM_GPUS: 1
 NUM_SHARDS: 1
